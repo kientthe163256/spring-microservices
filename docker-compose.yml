@@ -1,72 +1,71 @@
 ---
 version: '3'
 services:
-  ## MySQL Docker Compose Config
-  postgres-order:
-    container_name: postgres-order
-    image: postgres
+  mysql-order:
+    container_name: mysql-order
+    image: mysql:8.0.31
     environment:
-      POSTGRES_DB: order-service
-      POSTGRES_USER: kien
-      POSTGRES_PASSWORD: password
-      PGDATA: /data/postgres
+      MYSQL_DATABASE: ${DB_NAME_ORDER}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     volumes:
-      - ./postgres-order:/data/postgres
-    expose:
-      - "5431"
+      - order-service-data:/var/lib/mysql
+      - ./initdb-script/order-service.sql:/docker-entrypoint-initdb.d
     ports:
-      - "5431:5431"
-    command: -p 5431
+      - ${DB_PORT_ORDER}:${DB_PORT_ORDER}
+    env_file:
+      - .env
+#    command: -p 5431
     restart: unless-stopped
 
-  postgres-inventory:
-    container_name: postgres-inventory
-    image: postgres
+  mysql-inventory:
+    container_name: mysql-inventory
+    image: mysql:8.0.31
     environment:
-      POSTGRES_DB: inventory-service
-      POSTGRES_USER: kien
-      POSTGRES_PASSWORD: password
-      PGDATA: /data/postgres
+      MYSQL_DATABASE: ${DB_NAME_INVENTORY}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     volumes:
-      - ./postgres-inventory:/data/postgres
+      - inventory-service-data:/var/lib/mysql
+      - ./initdb-script/inventory-service.sql:/docker-entrypoint-initdb.d
     ports:
-      - "5432:5432"
+      - ${DB_PORT_INVENTORY}:${DB_PORT_INVENTORY}
+    env_file:
+      - .env
     restart: unless-stopped
 
   ## Mongo Docker Compose Config
-  mongo:
-    container_name: mongo
-    image: mongo:4.4.14-rc0-focal
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    expose:
-      - "27017"
-    volumes:
-      - ./mongo-data:/data/db
+#  mongo:
+#    container_name: mongo
+#    image: mongo:4.4.14-rc0-focal
+#    restart: unless-stopped
+#    ports:
+#      - "27017:27017"
+#    expose:
+#      - "27017"
+#    volumes:
+#      - ./mongo-data:/data/db
 
   ## Keycloak Config with Mysql database
-  keycloak-mysql:
-    container_name: keycloak-mysql
-    image: mysql:5.7
+  mysql-keycloak:
+    container_name: mysql-keycloak
+    image: mysql:8.0.31
     volumes:
-      - ./mysql_keycloak_data:/var/lib/mysql
+      - keycloak-data:/var/lib/mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: keycloak
-      MYSQL_USER: keycloak
-      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME_KEYCLOAK}
+      MYSQL_USER: ${DB_USERNAME_KEYCLOAK}
+      MYSQL_PASSWORD: ${DB_PASSWORD_KEYCLOAK}
 
   keycloak:
     container_name: keycloak
     image: quay.io/keycloak/keycloak:18.0.0
-    command: [ "start-dev", "--import-realm"]
+    command: ["start-dev", "--import-realm"]
     environment:
       DB_VENDOR: MYSQL
       DB_ADDR: mysql
-      DB_DATABASE: keycloak
-      DB_USER: keycloak
-      DB_PASSWORD: password
+      DB_DATABASE: ${DB_NAME_KEYCLOAK}
+      DB_USER: ${DB_USERNAME_KEYCLOAK}
+      DB_PASSWORD: ${DB_PASSWORD_KEYCLOAK}
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
     ports:
@@ -74,7 +73,7 @@ services:
     volumes:
       - ./realms/:/opt/keycloak/data/import/
     depends_on:
-      - keycloak-mysql
+      - mysql-keycloak
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.0.1
@@ -99,24 +98,15 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
 
-  ## Zipkin
-#  zipkin:
-#    image: openzipkin/zipkin
-#    container_name: zipkin
-#    ports:
-#      - "9411:9411"
-
   ## Eureka Server
   discovery-server:
     image: trinhtrungkien189/discovery-server:latest
-    container_name: discovery-server
     pull_policy: always
+    container_name: discovery-server
     ports:
       - "8761:8761"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-#    depends_on:
-#      - zipkin
 
   api-gateway:
     image: trinhtrungkien189/api-gateway:latest
@@ -128,9 +118,8 @@ services:
       - "8181"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY= TRACE
+      - LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY=TRACE
     depends_on:
-#      - zipkin
       - discovery-server
       - keycloak
 
@@ -142,7 +131,7 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=docker
     depends_on:
-      - mongo
+#      - mongo
       - discovery-server
       - api-gateway
 
@@ -153,11 +142,10 @@ services:
     pull_policy: always
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-order:5431/order-service
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://mysql-order:5431/order-service
     depends_on:
-      - postgres-order
+      - mysql-order
       - broker
-#      - zipkin
       - discovery-server
       - api-gateway
 
@@ -168,9 +156,9 @@ services:
     pull_policy: always
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-inventory:5432/inventory-service
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://mysql-inventory:5432/inventory-service
     depends_on:
-      - postgres-inventory
+      - mysql-inventory
       - discovery-server
       - api-gateway
 
@@ -182,36 +170,11 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=docker
     depends_on:
-#      - zipkin
       - broker
       - discovery-server
       - api-gateway
 
-#  ## Prometheus
-#  prometheus:
-#    image: prom/prometheus:v2.37.1
-#    container_name: prometheus
-#    restart: unless-stopped
-#    ports:
-#      - "9090:9090"
-#    volumes:
-#      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-#    depends_on:
-#      - product-service
-#      - inventory-service
-#      - order-service
-#      - notification-service
-#
-#  grafana:
-#    image: grafana/grafana-oss:8.5.2
-#    container_name: grafana
-#    restart: unless-stopped
-#    ports:
-#      - "3000:3000"
-#    links:
-#      - prometheus:prometheus
-#    volumes:
-#      - ./grafana:/var/lib/grafana
-#    environment:
-#      - GF_SECURITY_ADMIN_USER=admin
-#      - GF_SECURITY_ADMIN_PASSWORD=password
+volumes:
+  order-service-data:
+  inventory-service-data:
+  keycloak-data:
