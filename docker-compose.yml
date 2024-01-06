@@ -5,44 +5,39 @@ services:
     container_name: mysql-order
     image: mysql:8.0.31
     environment:
-      MYSQL_DATABASE: ${DB_NAME_ORDER}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME_ORDER}
+      MYSQL_TCP_PORT: ${DB_PORT_ORDER}
     volumes:
       - order-service-data:/var/lib/mysql
-      - ./initdb-script/order-service.sql:/docker-entrypoint-initdb.d
+      - ./initdb-script/order-service.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - ${DB_PORT_ORDER}:${DB_PORT_ORDER}
     env_file:
       - .env
-#    command: -p 5431
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-p$MYSQL_ROOT_PASSWORD' ]
+      timeout: 20s
+      retries: 2
 
   mysql-inventory:
     container_name: mysql-inventory
     image: mysql:8.0.31
     environment:
-      MYSQL_DATABASE: ${DB_NAME_INVENTORY}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME_INVENTORY}
+      MYSQL_TCP_PORT: ${DB_PORT_INVENTORY}
     volumes:
       - inventory-service-data:/var/lib/mysql
-      - ./initdb-script/inventory-service.sql:/docker-entrypoint-initdb.d
+      - ./initdb-script/inventory-service.sql:/docker-entrypoint-initdb.d/inventory-service-init.sql
     ports:
       - ${DB_PORT_INVENTORY}:${DB_PORT_INVENTORY}
     env_file:
       - .env
-    restart: unless-stopped
-
-  ## Mongo Docker Compose Config
-#  mongo:
-#    container_name: mongo
-#    image: mongo:4.4.14-rc0-focal
-#    restart: unless-stopped
-#    ports:
-#      - "27017:27017"
-#    expose:
-#      - "27017"
-#    volumes:
-#      - ./mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-p$MYSQL_ROOT_PASSWORD' ]
+      timeout: 20s
+      retries: 2
 
   ## Keycloak Config with Mysql database
   mysql-keycloak:
@@ -58,8 +53,8 @@ services:
 
   keycloak:
     container_name: keycloak
-    image: quay.io/keycloak/keycloak:18.0.0
-    command: ["start-dev", "--import-realm"]
+    image: keycloak/keycloak:23.0
+    command: ["start-dev", "--import-realm","--http-port=8181"]
     environment:
       DB_VENDOR: MYSQL
       DB_ADDR: mysql
@@ -69,7 +64,7 @@ services:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
     ports:
-      - "8080:8080"
+      - "8181:8181"
     volumes:
       - ./realms/:/opt/keycloak/data/import/
     depends_on:
@@ -81,6 +76,11 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: nc -z localhost 2181 || exit -1
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   broker:
     image: confluentinc/cp-kafka:7.0.1
@@ -88,7 +88,8 @@ services:
     ports:
       - "9092:9092"
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
@@ -113,9 +114,7 @@ services:
     container_name: api-gateway
     pull_policy: always
     ports:
-      - "8181:8080"
-    expose:
-      - "8181"
+      - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY=TRACE
@@ -131,7 +130,6 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=docker
     depends_on:
-#      - mongo
       - discovery-server
       - api-gateway
 
@@ -142,12 +140,17 @@ services:
     pull_policy: always
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://mysql-order:5431/order-service
+      - DB_PORT_ORDER=${DB_PORT_ORDER}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
     depends_on:
-      - mysql-order
-      - broker
-      - discovery-server
-      - api-gateway
+      broker:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+      api-gateway:
+        condition: service_started
+      mysql-order:
+        condition: service_healthy
 
   ## Inventory-Service Docker Compose Config
   inventory-service:
@@ -156,11 +159,15 @@ services:
     pull_policy: always
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://mysql-inventory:5432/inventory-service
+      - DB_PORT_INVENTORY=${DB_PORT_INVENTORY}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
     depends_on:
-      - mysql-inventory
-      - discovery-server
-      - api-gateway
+      mysql-inventory:
+        condition: service_healthy
+      discovery-server:
+        condition: service_started
+      api-gateway:
+        condition: service_started
 
   ## Notification-Service Docker Compose Config
   notification-service:

@@ -1,12 +1,14 @@
 package com.example.springmicroservice.inventoryservice;
 
-import com.example.springmicroservice.inventoryservice.model.Inventory;
-import com.example.springmicroservice.inventoryservice.repository.InventoryRepository;
-import org.springframework.boot.CommandLineRunner;
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
-import org.springframework.context.annotation.Bean;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 
 @SpringBootApplication
 @EnableDiscoveryClient
@@ -16,19 +18,19 @@ public class InventoryServiceApplication {
         SpringApplication.run(InventoryServiceApplication.class, args);
     }
 
-    @Bean
-    public CommandLineRunner loadData(InventoryRepository inventoryRepository){
-        return args -> {
-            Inventory inventory1 = new Inventory();
-            inventory1.setSkuCode("iphone_13");
-            inventory1.setQuantity(100);
+    @Value("${spring.datasource.url}")
+    private String url;
 
-            Inventory inventory2 = new Inventory();
-            inventory2.setSkuCode("aquafina");
-            inventory2.setQuantity(0);
-
-            inventoryRepository.save(inventory1);
-            inventoryRepository.save(inventory2);
-        };
+    @PostConstruct
+    public void init() {
+        System.out.println("----------------AFTER INIT--URL---------------" + url);
+        try {
+            Connection connection = DriverManager.getConnection(url, "root", "123456");
+            System.out.println("------------------URL---------------" + url);
+            System.out.println("Connect successfully");
+        } catch (SQLException e) {
+            System.out.println("--------------------------------FAILED------------------");
+            throw new RuntimeException(e);
+        }
     }
 }

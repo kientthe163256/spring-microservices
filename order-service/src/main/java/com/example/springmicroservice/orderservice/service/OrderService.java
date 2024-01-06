@@ -30,7 +30,10 @@ public class OrderService {
         Order order = new Order();
         order.setOrderNumber(UUID.randomUUID().toString());
 
-        List<OrderLineItems> orderLineItemsList = orderRequest.getOrderLineItemsDtoList().stream().map(orderMapper::mapToOrderLineItems).toList();
+        List<OrderLineItems> orderLineItemsList = orderRequest.getOrderLineItemsDtoList()
+                .stream()
+                .map(orderMapper::mapToOrderLineItems)
+                .toList();
         order.setOrderLineItemsList(orderLineItemsList);
 
         List<String> skuCodes = order.getOrderLineItemsList().stream().map(OrderLineItems::getSkuCode).toList();
@@ -48,7 +51,7 @@ public class OrderService {
         boolean allProductIsInStock = Arrays.stream(inventoryResponseArray).allMatch(InventoryResponse::isInStock);
         if (allProductIsInStock) {
             orderRepository.save(order);
-            kafkaTemplate.send("notificationTopic", new OrderPlacedEvent(order.getOrderNumber()));
+//            kafkaTemplate.send("notificationTopic", new OrderPlacedEvent(order.getOrderNumber()));
             return "Order placed successfully!";
         } else {
             throw new IllegalArgumentException("Product is currently out of stock!");

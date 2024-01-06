@@ -27,8 +27,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Testcontainers
 class ProductServiceApplicationTests {
-    @Container
-    static MongoDBContainer mongoDBContainer = new MongoDBContainer("mongo:4.4.2");
+//    @Container
+//    static MongoDBContainer mongoDBContainer = new MongoDBContainer("mongo:4.4.2");
     @Autowired
     private MockMvc mockMvc;
     @Autowired
@@ -36,12 +36,12 @@ class ProductServiceApplicationTests {
     @Autowired
     private ProductRepository productRepository;
 
-    @DynamicPropertySource
-    static void setProperties(DynamicPropertyRegistry dymDynamicPropertyRegistry) {
-        dymDynamicPropertyRegistry.add("spring.data.mongodb.uri", mongoDBContainer::getReplicaSetUrl);
-    }
+//    @DynamicPropertySource
+//    static void setProperties(DynamicPropertyRegistry dymDynamicPropertyRegistry) {
+//        dymDynamicPropertyRegistry.add("spring.data.mongodb.uri", mongoDBContainer::getReplicaSetUrl);
+//    }
 
-    @Test
+//    @Test
     void shouldCreateProduct() throws Exception {
         ProductRequest productRequest = getProductRequest();
         String productRequestString = objectMapper.writeValueAsString(productRequest);

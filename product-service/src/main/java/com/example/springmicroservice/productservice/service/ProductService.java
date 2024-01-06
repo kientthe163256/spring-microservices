@@ -9,6 +9,7 @@ import com.example.springmicroservice.productservice.repository.CategoryReposito
 import com.example.springmicroservice.productservice.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -22,6 +23,8 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductMapper productMapper;
+    private final MongoTemplate mongoTemplate;
+
     public ProductResponse createProduct(ProductRequest productRequest){
         Optional<Category> categoryOptional = categoryRepository.findById(productRequest.getCategoryId());
         if (categoryOptional.isEmpty()) throw new RuntimeException("Category Not Found");
@@ -33,12 +36,14 @@ public class ProductService {
                 .price(productRequest.getPrice())
                 .build();
 
-        log.info("Product with id = {} is saved!", product.getId());
-        Product savedProduct = productRepository.save(product);
+        Product savedProduct = productRepository.insert(product);
         return productMapper.mapToProductResponse(savedProduct);
     }
 
     public List<ProductResponse> getAllProducts() {
-        return productRepository.findAll().stream().map(productMapper::mapToProductResponse).collect(Collectors.toList());
+        List<Product> products = productRepository.findAll();
+        return products.stream()
+                .map(productMapper::mapToProductResponse)
+                .collect(Collectors.toList());
     }
 }

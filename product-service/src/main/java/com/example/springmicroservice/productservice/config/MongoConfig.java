@@ -1,4 +1,4 @@
-package com.example.springmicroservice.productservice.repository.config;
+package com.example.springmicroservice.productservice.config;
 
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
@@ -14,14 +14,22 @@ public class MongoConfig extends AbstractMongoClientConfiguration {
     @Value("${spring.data.mongodb.database}")
     private String databaseName;
 
+    @Value("${spring.data.mongodb.uri}")
+    private String connectionString;
+
     @Override
     protected String getDatabaseName() {
         return databaseName;
     }
 
     @Override
+    protected boolean autoIndexCreation() {
+        return true;
+    }
+
+    @Override
     public MongoClient mongoClient() {
-        ConnectionString connectionString = new ConnectionString("mongodb+srv://root:chanhMuoiLanh@freecluster.08ao3uh.mongodb.net/product-service");
+        ConnectionString connectionString = new ConnectionString(this.connectionString);
         MongoClientSettings mongoClientSettings = MongoClientSettings.builder()
                 .applyConnectionString(connectionString)
                 .build();

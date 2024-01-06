@@ -27,6 +27,6 @@ public class OrderController {
     }
 
     private CompletableFuture<String> fallbackMethod(OrderRequest orderRequest, RuntimeException runtimeException){
-        return CompletableFuture.supplyAsync(() -> "Something went wrong, please order later!");
+        return CompletableFuture.supplyAsync(() -> orderRequest.getOrderLineItemsDtoList().get(0).toString() + runtimeException.getMessage());   //"Something went wrong, please order later!"
     }
 }

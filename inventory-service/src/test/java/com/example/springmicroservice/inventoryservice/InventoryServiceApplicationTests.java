@@ -18,6 +18,6 @@ class InventoryServiceApplicationTests {
     @Test
     public void getInventoryNonExist(){
         List<Inventory> inventoryList = inventoryRepository.findBySkuCodeIn(List.of("non_exist"));
-        Assertions.assertNull(inventoryList);
+        Assertions.assertEquals(0, inventoryList.size());
     }
 }

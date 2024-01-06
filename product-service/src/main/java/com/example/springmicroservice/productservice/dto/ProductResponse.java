@@ -1,5 +1,6 @@
 package com.example.springmicroservice.productservice.dto;
 
+import com.example.springmicroservice.productservice.model.Category;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,4 +17,5 @@ public class ProductResponse {
     private String name;
     private String description;
     private BigDecimal price;
+    private Category category;
 }

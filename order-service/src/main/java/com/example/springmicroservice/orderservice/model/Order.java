@@ -10,16 +10,24 @@ import javax.annotation.processing.Generated;
 import java.util.List;
 
 @Entity
-@Table(name = "t_orders")
+@Table(name = "t_order")
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
 public class Order {
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "order_number")
     private String orderNumber;
-    @OneToMany(cascade = CascadeType.ALL)
+
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     private List<OrderLineItems> orderLineItemsList;
+
+    public void setOrderLineItemsList(List<OrderLineItems> items){
+        this.orderLineItemsList = items;
+        items.forEach(i -> i.setOrder(this));
+    }
 }
